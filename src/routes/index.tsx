@@ -9,7 +9,7 @@ export const Route = createFileRoute("/")({
 });
 
 function Home() {
-  const [view, setView] = useState<"published" | "local">("published");
+  const [view, setView] = useState<"published" | "local">("local");
   return (
     <>
       <div className="mx-auto flex w-full max-w-6xl justify-end px-4 pt-6 md:px-8">

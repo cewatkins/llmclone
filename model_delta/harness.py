@@ -702,6 +702,7 @@ def run_hf_pair(name_a: str, name_b: str, prompts: list[dict], device_mode: str,
         acts_b = [inspector.captured_b[name] for name in names]
     alignment = RepresentationalAlignmentAuditor().evaluate(acts_a, acts_b, names=names)
     behavior = LMSBehaviorTracker(top_k=8, id_to_token=LazyTokens(tokenizer)).analyze(sequences)
+    same = name_a == name_b
     instruct_b = "instruct" in name_b.lower()
     models = {
         "a": _model_meta(
@@ -709,18 +710,19 @@ def run_hf_pair(name_a: str, name_b: str, prompts: list[dict], device_mode: str,
             model_a,
             dtype_a,
             device_a,
-            "Base checkpoint. This is the reference the comparison measures against.",
+            "Same checkpoint as B, loaded as the reference copy." if same else "Base checkpoint. This is the reference the comparison measures against.",
         ),
         "b": _model_meta(
             name_b,
             model_b,
             dtype_b,
             device_b,
-            "Instruct checkpoint of the same family." if instruct_b else "Second Hugging Face checkpoint, scored on the same tokens as A.",
+            "Same checkpoint as A, loaded a second time." if same else "Instruct checkpoint of the same family." if instruct_b else "Second Hugging Face checkpoint, scored on the same tokens as A.",
         ),
         "pair": (
-            f"{name_a.split('/')[-1]} against {name_b.split('/')[-1]}. "
-            "Same tokenizer and the same token ids at every position."
+            f"{name_a.split('/')[-1]} scored against itself. Same tokenizer, same token ids, same weights."
+            if same
+            else f"{name_a.split('/')[-1]} against {name_b.split('/')[-1]}. Same tokenizer and the same token ids at every position."
         ),
     }
     verification = {

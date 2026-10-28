@@ -1,0 +1,8 @@
+code|def add(a, b):
+code|def factorial(n):
+code|for i in range(10):
+code|import json
+code|class Stack:
+code|SELECT name FROM users WHERE
+code|function sum(a, b) {
+code|# reverse a string

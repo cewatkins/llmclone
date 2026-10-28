@@ -97,6 +97,20 @@ export function PublishedBrief() {
         <p className="mt-5 text-xs text-muted">Bone is {pair.a.name}. Olive is {pair.b.name}. Bar length is the score out of 100.</p>
       </section>
 
+      <section className="mt-4 rounded-2xl bg-surface p-4 shadow-border md:p-5">
+        <h2 className="font-serif text-xl text-fg">LMS</h2>
+        <p className="mt-2 text-sm text-fg">Not run. There is no power series to step.</p>
+        <p className="mt-2 text-sm text-muted">
+          The filter only needs p(k) = JSD² at each shared token. {pair.a.name} and {pair.b.name} never produced that series.
+          Opus weights are closed, and this session has no Anthropic or Qwen key.
+          {pair.id === "27b-opus46"
+            ? " Qwen3.8-27B is about 50 GB in 16-bit against roughly 3 GB free."
+            : " The open Max sibling is a 2.4T model, which does not fit either."}
+          The two tokenizers also do not share a position index, so two text replies would still not be a legal input to this update.
+        </p>
+        <p className="mt-3 text-sm text-muted tabular-nums">Taps: not computed. Innovation: not computed. Spans: none.</p>
+      </section>
+
       <p className="mt-4 text-sm text-muted">
         {pair.source} {pair.caveat}
       </p>

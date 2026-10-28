@@ -333,6 +333,7 @@ export function BriefingView({ briefing }: { briefing: Briefing }) {
             })}
           </div>
           {selectedPoint ? <TokenReadout point={selectedPoint} file={prompt.file} line={prompt.line} /> : null}
+          <LmsSteps point={selectedPoint ?? prompt.series[0]} weights={briefing.macro.lms_weights} />
           {engineering ? <TokenTable series={prompt.series} onPick={setTokenK} active={tokenK} /> : null}
         </section>
       ) : null}
@@ -617,6 +618,53 @@ function DivergenceChart({
         <Line type="monotone" dataKey="threshold" name="μ+3σ bits" stroke="var(--color-bone)" strokeDasharray="4 4" dot={false} />
       </LineChart>
     </ResponsiveContainer>
+  );
+}
+
+function LmsSteps({ point, weights }: { point: SeriesPoint; weights: number[] }) {
+  const silent = Math.abs(point.innovation) < 1e-12 && Math.abs(point.power) < 1e-12;
+  return (
+    <section className="mt-4 rounded-2xl bg-surface p-4 shadow-border md:p-5">
+      <h3 className="font-serif text-xl text-fg">LMS at token {point.k}</h3>
+      <p className="mt-1 text-sm text-muted">
+        The filter tracks divergence power, which is JSD squared. It does not decide the headline overlap, and it does not open spans.
+      </p>
+      <ol className="mt-4 space-y-3 text-sm text-fg">
+        <li>
+          <span className="text-copper">1. Measure.</span> Top-8 Jensen–Shannon between the two logit rows is {formatNum(point.jsd, 4)} bits.
+          Power p = JSD² = {formatNum(point.power, 4)}.
+        </li>
+        <li>
+          <span className="text-copper">2. Gate, before any tap moves.</span> Open a span only if p exceeds μ + 3σ, here {formatNum(point.mu, 4)} + 3×{formatNum(point.sigma, 4)} = {formatNum(point.threshold, 4)}.
+          This token {point.flagged ? "clears" : "does not clear"} it.
+          {silent
+            ? " σ is floored at (0.08 bits)² = 0.0064 because every calm power is 0 and the MAD is 0. The LMS taps are not in this test."
+            : " The LMS taps are not in this test."}
+        </li>
+        <li>
+          <span className="text-copper">3. Predict.</span> Four taps hold earlier powers, not this one. w·d = {formatNum(point.lmsPrediction, 4)}.
+          After the whole stream the taps are [{weights.map((weight) => weight.toFixed(3)).join(", ")}].
+        </li>
+        <li>
+          <span className="text-copper">4. Innovation.</span> e = p − w·d = {formatNum(point.innovation, 4)}.
+        </li>
+        <li>
+          <span className="text-copper">5. Update.</span> w ← w + 0.35 · e / (‖d‖² + 10⁻⁶) · d.
+          {silent
+            ? " e is 0 and d is still zero, so the correction is the zero vector and the taps stay at 0."
+            : " The correction points along the delay line and is scaled by this innovation."}
+        </li>
+        <li>
+          <span className="text-copper">6. Shift.</span> Drop the oldest tap and store p = {formatNum(point.power, 4)} as the newest. The next token predicts from that.
+        </li>
+        <li>
+          <span className="text-copper">7. Smooth, then the slow baseline.</span> J ← 0.65 J + 0.35 p lands at {formatNum(point.ema, 4)}. That average is not the tap update.
+          {point.flagged
+            ? " The position is flagged, so μ and σ are left alone."
+            : " It is unflagged, so μ and σ take one slow step toward this power."}
+        </li>
+      </ol>
+    </section>
   );
 }
 
