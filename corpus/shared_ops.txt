@@ -1,0 +1,4 @@
+the residual stream carries features forward through each block
+linear probes recover sparse features from middle layers
+centered kernel alignment stays high when topology is preserved
+next token certainty falls when the context is genuinely novel
