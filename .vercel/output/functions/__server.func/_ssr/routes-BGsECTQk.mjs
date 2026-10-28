@@ -1,8 +1,8 @@
 import { i as __toESM } from "../_runtime.mjs";
 import { K as require_react, b as require_jsx_runtime } from "../_libs/@tanstack/react-router+[...].mjs";
-import { n as Layers, r as Activity } from "../_libs/lucide-react.mjs";
+import { i as Activity, n as Scale, r as Layers } from "../_libs/lucide-react.mjs";
 import { a as XAxis, c as ReferenceArea, d as Cell, f as ResponsiveContainer, i as YAxis, l as Bar, n as BarChart, o as Line, p as Tooltip, r as LineChart, s as CartesianGrid, t as PieChart, u as Pie } from "../_libs/recharts+[...].mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/routes-hiwdI264.js
+//#region node_modules/.nitro/vite/services/ssr/assets/routes-BGsECTQk.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();
 var KIND_LABEL = {
@@ -1101,6 +1101,306 @@ function roleSummary(briefing) {
 			meanJsd
 		};
 	}).filter((row) => row !== null);
+}
+/** Scores are the ones printed on Qwen's cards. They are not a Meridian weight audit. */
+var publishedPairs = [{
+	id: "27b-opus46",
+	label: "27B · Opus 4.6",
+	a: {
+		name: "Qwen3.8-27B",
+		note: "Open weights, Apache 2.0. Dense 27B, 64 layers, 262k context. About 50 GB in 16-bit."
+	},
+	b: {
+		name: "Claude Opus 4.6 Max",
+		note: "The Claude printed beside 27B on Qwen’s card. Size is not disclosed. Weights are not public."
+	},
+	source: "Qwen3.8-27B model card, as reported August 2026.",
+	caveat: "Qwen ran these. The SWE-bench Pro gap is the one later writeups flag as a corrected-task rescore. A newer Claude, Opus 5, is listed at 79.2 on that benchmark against this 27B’s 61.7.",
+	rows: [
+		{
+			name: "SWE-bench Pro",
+			tests: "Agentic coding",
+			a: 61.7,
+			b: 53.4
+		},
+		{
+			name: "OSWorld-Verified",
+			tests: "Computer use",
+			a: 84.3,
+			b: 72.7
+		},
+		{
+			name: "IFBench",
+			tests: "Instruction following",
+			a: 79.5,
+			b: 62.5
+		},
+		{
+			name: "Terminal-Bench 2.1",
+			tests: "Terminal coding",
+			a: 73,
+			b: 78.2
+		},
+		{
+			name: "GPQA Diamond",
+			tests: "Graduate science",
+			a: 89.2,
+			b: 91.3
+		},
+		{
+			name: "Humanity’s Last Exam",
+			tests: "Expert questions",
+			a: 30.8,
+			b: 40
+		}
+	]
+}, {
+	id: "max-opus48",
+	label: "Max · Opus 4.8",
+	a: {
+		name: "Qwen3.8-Max",
+		note: "API flagship. Open sibling is the 2.4T-A95B MoE. About $2 / $6 per million tokens."
+	},
+	b: {
+		name: "Claude Opus 4.8",
+		note: "The Claude in Qwen’s launch table. About $5 / $25 per million tokens. Fable 5 is a later, stronger coder."
+	},
+	source: "Qwen3.8-Max launch table.",
+	caveat: "Self-run, and a few rows are Qwen’s own benches. Claude Fable 5 still leads Max on SWE-bench Pro, 80.0 to 67.7.",
+	rows: [
+		{
+			name: "Terminal Bench 2.1",
+			tests: "Terminal coding",
+			a: 86.6,
+			b: 84.6
+		},
+		{
+			name: "SWE-bench Pro",
+			tests: "Agentic coding",
+			a: 67.7,
+			b: 69.2
+		},
+		{
+			name: "FrontierSWE",
+			tests: "Software engineering",
+			a: 73.5,
+			b: 70
+		},
+		{
+			name: "PaperBench",
+			tests: "Research papers",
+			a: 93,
+			b: 80.3
+		},
+		{
+			name: "CoWorkBench",
+			tests: "Collaborative work",
+			a: 74.8,
+			b: 72.3
+		},
+		{
+			name: "Toolathlon Verified",
+			tests: "Tool use",
+			a: 72.5,
+			b: 76.2
+		},
+		{
+			name: "GPQA Diamond",
+			tests: "Graduate science",
+			a: 92.6,
+			b: 92
+		},
+		{
+			name: "HLE, no tools",
+			tests: "Expert questions",
+			a: 43.6,
+			b: 45.7
+		},
+		{
+			name: "IFBench",
+			tests: "Instruction following",
+			a: 82.8,
+			b: 62.2
+		}
+	]
+}];
+function leadCount(pair) {
+	let a = 0;
+	let b = 0;
+	for (const row of pair.rows) if (row.a > row.b) a += 1;
+	else if (row.b > row.a) b += 1;
+	return {
+		a,
+		b
+	};
+}
+function PublishedBrief() {
+	const [pairId, setPairId] = (0, import_react.useState)(publishedPairs[0].id);
+	const pair = publishedPairs.find((row) => row.id === pairId) ?? publishedPairs[0];
+	const leads = (0, import_react.useMemo)(() => leadCount(pair), [pair]);
+	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("main", {
+		className: "mx-auto w-full max-w-6xl px-4 py-8 md:px-8 md:py-10",
+		children: [
+			/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("header", {
+				className: "max-w-2xl",
+				children: [
+					/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("p", {
+						className: "flex items-center gap-2 text-xs font-medium tracking-widest text-copper uppercase",
+						children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Scale, {
+							className: "size-4",
+							"aria-hidden": "true"
+						}), "Published scorecard"]
+					}),
+					/* @__PURE__ */ (0, import_jsx_runtime.jsx)("h1", {
+						className: "mt-2 font-serif text-4xl text-fg md:text-5xl",
+						children: "Qwen 3.8 vs Claude"
+					}),
+					/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+						className: "mt-3 text-base text-muted",
+						children: "The Claude on Qwen’s own card, not a hidden-state audit. Claude’s weights are closed, and Qwen3.8-27B does not fit in this session, so Meridian cannot score token agreement or CKA for this pair."
+					})
+				]
+			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+				className: "mt-6 flex flex-wrap gap-2",
+				role: "group",
+				"aria-label": "Which pair",
+				children: publishedPairs.map((option) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
+					type: "button",
+					"aria-pressed": option.id === pair.id,
+					onClick: () => setPairId(option.id),
+					className: `rounded-full px-3 py-1.5 text-sm ${option.id === pair.id ? "bg-bone text-bg" : "bg-surface text-muted shadow-border"}`,
+					children: option.label
+				}, option.id))
+			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("section", {
+				className: "mt-6 grid gap-3 md:grid-cols-2",
+				children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("article", {
+					className: "rounded-2xl bg-surface p-4 shadow-border",
+					children: [
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+							className: "text-xs tracking-widest text-copper uppercase",
+							children: "Model A"
+						}),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("h2", {
+							className: "mt-1 font-serif text-2xl text-fg",
+							children: pair.a.name
+						}),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+							className: "mt-2 text-sm text-muted",
+							children: pair.a.note
+						}),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+							className: "mt-4 text-3xl font-serif text-bone tabular-nums",
+							children: leads.a
+						}),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+							className: "text-xs text-muted",
+							children: "rows ahead on this card"
+						})
+					]
+				}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("article", {
+					className: "rounded-2xl bg-surface p-4 shadow-border",
+					children: [
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+							className: "text-xs tracking-widest text-olive uppercase",
+							children: "Model B"
+						}),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("h2", {
+							className: "mt-1 font-serif text-2xl text-fg",
+							children: pair.b.name
+						}),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+							className: "mt-2 text-sm text-muted",
+							children: pair.b.note
+						}),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+							className: "mt-4 text-3xl font-serif text-olive tabular-nums",
+							children: leads.b
+						}),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+							className: "text-xs text-muted",
+							children: "rows ahead on this card"
+						})
+					]
+				})]
+			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("section", {
+				className: "mt-4 rounded-2xl bg-surface p-4 shadow-border md:p-5",
+				children: [
+					/* @__PURE__ */ (0, import_jsx_runtime.jsx)("h2", {
+						className: "font-serif text-xl text-fg",
+						children: "Same tests, their numbers"
+					}),
+					/* @__PURE__ */ (0, import_jsx_runtime.jsx)("ul", {
+						className: "mt-4 space-y-4",
+						children: pair.rows.map((row) => {
+							const winner = row.a === row.b ? "tie" : row.a > row.b ? "a" : "b";
+							return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("li", { children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+								className: "flex flex-wrap items-baseline justify-between gap-2",
+								children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("p", {
+									className: "text-sm text-fg",
+									children: [row.name, /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+										className: "ml-2 text-muted",
+										children: row.tests
+									})]
+								}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("p", {
+									className: "text-sm tabular-nums text-muted",
+									children: [
+										/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+											className: winner === "a" ? "text-bone" : "",
+											children: row.a.toFixed(1)
+										}),
+										/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+											className: "px-1",
+											children: "/"
+										}),
+										/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+											className: winner === "b" ? "text-olive" : "",
+											children: row.b.toFixed(1)
+										})
+									]
+								})]
+							}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+								className: "mt-2 grid gap-1",
+								children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+									className: "h-2 overflow-hidden rounded-full bg-bg",
+									children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+										className: "h-full rounded-full bg-bone",
+										style: { width: `${row.a}%` }
+									})
+								}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+									className: "h-2 overflow-hidden rounded-full bg-bg",
+									children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+										className: "h-full rounded-full bg-olive",
+										style: { width: `${row.b}%` }
+									})
+								})]
+							})] }, row.name);
+						})
+					}),
+					/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("p", {
+						className: "mt-5 text-xs text-muted",
+						children: [
+							"Bone is ",
+							pair.a.name,
+							". Olive is ",
+							pair.b.name,
+							". Bar length is the score out of 100."
+						]
+					})
+				]
+			}),
+			/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("p", {
+				className: "mt-4 text-sm text-muted",
+				children: [
+					pair.source,
+					" ",
+					pair.caveat
+				]
+			})
+		]
+	});
 }
 var briefing = {
 	"product": "Meridian",
@@ -4715,7 +5015,28 @@ var briefing = {
 	}
 };
 function Home() {
-	return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(BriefingView, { briefing });
+	const [view, setView] = (0, import_react.useState)("published");
+	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+		className: "mx-auto flex w-full max-w-6xl justify-end px-4 pt-6 md:px-8",
+		children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+			className: "flex rounded-2xl bg-surface p-1 shadow-border",
+			role: "group",
+			"aria-label": "Brief",
+			children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
+				type: "button",
+				"aria-pressed": view === "published",
+				onClick: () => setView("published"),
+				className: `rounded-xl px-3 py-1.5 text-sm ${view === "published" ? "bg-bone text-bg" : "text-muted"}`,
+				children: "Qwen 3.8"
+			}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
+				type: "button",
+				"aria-pressed": view === "local",
+				onClick: () => setView("local"),
+				className: `rounded-xl px-3 py-1.5 text-sm ${view === "local" ? "bg-bone text-bg" : "text-muted"}`,
+				children: "Local audit"
+			})]
+		})
+	}), view === "published" ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(PublishedBrief, {}) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(BriefingView, { briefing })] });
 }
 //#endregion
 export { Home as component };
