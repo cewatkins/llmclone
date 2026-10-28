@@ -1,0 +1,8 @@
+continuation|The capital of France is
+continuation|1, 2, 3, 4, 5,
+continuation|Once upon a time there was a
+factual|Water boils at a temperature of
+code|def add(a, b): return
+instruction|User: Explain gravity in one sentence. Assistant:
+instruction|User: Write a haiku about rain. Assistant:
+dialogue|User: What is 17 plus 26? Assistant:

@@ -119,10 +119,58 @@ class TinyCausalLM(nn.Module):
         return self.lm_head(self.final_norm(hidden))
 
 
+class LazyTokens:
+    """Resolve only the token ids that actually win the top-1, not the whole vocab."""
+
+    def __init__(self, tokenizer) -> None:
+        self._tokenizer = tokenizer
+        self._cache: dict[int, str] = {}
+
+    def get(self, key, default=None):
+        index = int(key)
+        if index not in self._cache:
+            piece = self._tokenizer.convert_ids_to_tokens(index)
+            if isinstance(piece, list):
+                piece = piece[0] if piece else None
+            text = "" if piece is None else str(piece)
+            self._cache[index] = _surface_token(text) if text else str(index)
+        return self._cache.get(index, default)
+
+
+def _surface_token(piece: str) -> str:
+    if piece in {"Ġ", "▁"}:
+        return "␣"
+    if piece == "Ċ":
+        return "↵"
+    text = piece.replace("Ġ", "").replace("▁", "").replace("Ċ", "↵")
+    return text.strip() or piece
+
+
+def _model_meta(name: str, model: nn.Module, dtype: torch.dtype, device: torch.device, note: str) -> dict:
+    config = getattr(model, "config", None)
+    layers = int(getattr(config, "num_hidden_layers", 0) or 0)
+    width = int(getattr(config, "hidden_size", 0) or 0)
+    vocab = int(getattr(config, "vocab_size", 0) or 0)
+    return {
+        "name": name,
+        "label": name.split("/")[-1],
+        "params": _count_params(model),
+        "layers": layers,
+        "width": width,
+        "vocab": vocab,
+        "dtype": _dtype_name(dtype),
+        "device": str(device),
+        "note": note,
+    }
+
+
 def load_hf_causal_lm(name: str, device: torch.device, dtype: torch.dtype) -> nn.Module:
     from transformers import AutoModelForCausalLM
 
-    model = AutoModelForCausalLM.from_pretrained(name, torch_dtype=dtype)
+    try:
+        model = AutoModelForCausalLM.from_pretrained(name, dtype=dtype)
+    except TypeError:
+        model = AutoModelForCausalLM.from_pretrained(name, torch_dtype=dtype)
     model.to(device)
     model.eval()
     return model
@@ -131,6 +179,8 @@ def load_hf_causal_lm(name: str, device: torch.device, dtype: torch.dtype) -> nn
 def load_lines(corpus: Path) -> list[dict]:
     rows: list[dict] = []
     for path in sorted(corpus.glob("*.txt")):
+        if path.name.startswith("hf_"):
+            continue
         if "archive" in path.name:
             role = "archive"
         elif "acquired" in path.name:
@@ -582,8 +632,12 @@ def _sanity_story(briefing: dict) -> None:
         raise AssertionError(f"expected early CKA to hold up relative to the last block, got {cka}")
 
 
-def run_hf_pair(name_a: str, name_b: str, prompts: list[str], device_mode: str, dtype_preference: str) -> dict:
-    """Same inspector path on two pretrained causal LMs. Prompts are raw strings."""
+def run_hf_pair(name_a: str, name_b: str, prompts: list[dict], device_mode: str, dtype_preference: str) -> dict:
+    """Same inspector path on two pretrained causal LMs.
+
+    ``prompts`` items are ``{text, role, file, line}``. Both models see the
+    identical token ids from model A's tokenizer, so the streams stay aligned.
+    """
 
     device_a, device_b = select_devices(device_mode)
     dtype_a = select_dtype(device_a, dtype_preference)
@@ -593,44 +647,52 @@ def run_hf_pair(name_a: str, name_b: str, prompts: list[str], device_mode: str, 
     tokenizer = AutoTokenizer.from_pretrained(name_a)
     model_a = load_hf_causal_lm(name_a, device_a, dtype_a)
     model_b = load_hf_causal_lm(name_b, device_b, dtype_b)
+    vocab_a = int(getattr(model_a.config, "vocab_size", 0) or 0)
+    vocab_b = int(getattr(model_b.config, "vocab_size", 0) or 0)
+    if vocab_a and vocab_b and vocab_a != vocab_b:
+        raise RuntimeError(f"Vocab mismatch {vocab_a} vs {vocab_b}; the token streams would not be comparable")
     sequences = []
     encoded_prompts = []
     hook_log: list[str] = []
     with torch.no_grad():
         with ModelPairInspector(model_a, model_b) as inspector:
             hook_log.extend(inspector.hook_log)
-            for index, text in enumerate(prompts, start=1):
-                ids = tokenizer(text, return_tensors="pt").input_ids
-                tokens = tokenizer.convert_ids_to_tokens(ids[0].tolist())
+            for row in prompts:
+                encoded = tokenizer(row["text"], return_tensors="pt", truncation=True, max_length=48)
+                ids = encoded.input_ids
+                raw_tokens = tokenizer.convert_ids_to_tokens(ids[0].tolist())
+                tokens = [_surface_token(str(token)) for token in raw_tokens]
                 logits_a = forward_logits(model_a, ids.to(device_a))
                 logits_b = forward_logits(model_b, ids.to(device_b))
+                if logits_a.shape != logits_b.shape:
+                    raise RuntimeError(f"Logit shape {tuple(logits_a.shape)} vs {tuple(logits_b.shape)} on {row['text']!r}")
                 inspector.consume()
-                pid = f"prompt:{index}"
+                pid = f"{row['file']}:{row['line']}"
                 encoded_prompts.append(
                     {
                         "id": pid,
-                        "file": "prompts.txt",
-                        "line": index,
-                        "text": text,
-                        "role": "user",
-                        "tokens": [token.replace("Ġ", " ").replace("▁", " ").strip() or token for token in tokens],
+                        "file": row["file"],
+                        "line": row["line"],
+                        "text": row["text"],
+                        "role": row["role"],
+                        "tokens": tokens,
                         "ids": ids[0].tolist(),
                     }
                 )
                 sequences.append(
                     {
                         "prompt_id": pid,
-                        "file": "prompts.txt",
-                        "line": index,
-                        "tokens": encoded_prompts[-1]["tokens"],
+                        "file": row["file"],
+                        "line": row["line"],
+                        "tokens": tokens,
                         "logits_a": logits_a[0].detach().float().cpu().numpy(),
                         "logits_b": logits_b[0].detach().float().cpu().numpy(),
                     }
                 )
+            attached_live = inspector.hook_count
         hook_log.extend(inspector.hook_log)
     inspector.assert_released()
     names = list(inspector.captured_a.keys())
-    # Pair by depth inside the auditor; names follow model A when counts match.
     if len(inspector.captured_b) != len(names):
         names = None
         acts_a = list(inspector.captured_a.values())
@@ -639,14 +701,39 @@ def run_hf_pair(name_a: str, name_b: str, prompts: list[str], device_mode: str, 
         acts_a = [inspector.captured_a[name] for name in names]
         acts_b = [inspector.captured_b[name] for name in names]
     alignment = RepresentationalAlignmentAuditor().evaluate(acts_a, acts_b, names=names)
-    id_to_token = {index: tokenizer.convert_ids_to_tokens([index])[0] for index in range(tokenizer.vocab_size)}
-    behavior = LMSBehaviorTracker(top_k=8, id_to_token=id_to_token).analyze(sequences)
+    behavior = LMSBehaviorTracker(top_k=8, id_to_token=LazyTokens(tokenizer)).analyze(sequences)
+    instruct_b = "instruct" in name_b.lower()
     models = {
-        "a": {"name": name_a, "label": name_a, "params": _count_params(model_a), "dtype": _dtype_name(dtype_a), "device": str(device_a), "note": "Hugging Face checkpoint"},
-        "b": {"name": name_b, "label": name_b, "params": _count_params(model_b), "dtype": _dtype_name(dtype_b), "device": str(device_b), "note": "Hugging Face checkpoint"},
-        "pair": "Pretrained causal language models.",
+        "a": _model_meta(
+            name_a,
+            model_a,
+            dtype_a,
+            device_a,
+            "Base checkpoint. This is the reference the comparison measures against.",
+        ),
+        "b": _model_meta(
+            name_b,
+            model_b,
+            dtype_b,
+            device_b,
+            "Instruct checkpoint of the same family." if instruct_b else "Second Hugging Face checkpoint, scored on the same tokens as A.",
+        ),
+        "pair": (
+            f"{name_a.split('/')[-1]} against {name_b.split('/')[-1]}. "
+            "Same tokenizer and the same token ids at every position."
+        ),
     }
-    verification = {"hooks_released": True, "dtype_a": _dtype_name(dtype_a), "dtype_b": _dtype_name(dtype_b)}
+    verification = {
+        **alignment_self_test(),
+        **behavior_self_test(),
+        "hooks_released": True,
+        "live_hooks_attached": attached_live,
+        "live_hooks_released": True,
+        "dtype_a": _dtype_name(dtype_a),
+        "dtype_b": _dtype_name(dtype_b),
+        "device_a": str(device_a),
+        "device_b": str(device_b),
+    }
     return _jsonable(build_briefing(alignment, behavior, encoded_prompts, models, verification, hook_log))
 
 
@@ -710,6 +797,28 @@ def print_summary(briefing: dict) -> None:
     print()
 
 
+def _read_prompt_file(path: Path) -> list[dict]:
+    rows: list[dict] = []
+    for line_no, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        text = raw.strip()
+        if not text or text.startswith("#"):
+            continue
+        if "|" in text:
+            role, body = text.split("|", 1)
+            role = role.strip() or "user"
+            body = body.strip()
+        else:
+            role, body = "user", text
+        if not body:
+            continue
+        path = path if path.is_absolute() else ROOT / path
+        file_label = str(path.resolve().relative_to(ROOT))
+        rows.append({"role": role, "text": body, "file": file_label, "line": line_no})
+    if not rows:
+        raise SystemExit(f"No prompts in {path}")
+    return rows
+
+
 def main(argv: list[str] | None = None) -> dict:
     import argparse
 
@@ -728,11 +837,7 @@ def main(argv: list[str] | None = None) -> dict:
     else:
         if not args.prompts:
             raise SystemExit("HF comparison needs --prompts file with one string per line")
-        texts = [
-            line.strip()
-            for line in Path(args.prompts).read_text(encoding="utf-8").splitlines()
-            if line.strip()
-        ]
+        texts = _read_prompt_file(Path(args.prompts))
         briefing = run_hf_pair(args.model_a, args.model_b, texts, args.device, args.dtype)
     chart = write_outputs(briefing, Path(args.out))
     print_summary(briefing)

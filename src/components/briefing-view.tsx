@@ -31,6 +31,11 @@ const ROLE_LABEL: Record<string, string> = {
   archive: "Archive · A only",
   acquired: "Protocol · B only",
   novel: "Neither model",
+  continuation: "Continuation",
+  factual: "Factual",
+  code: "Code",
+  instruction: "Instruction",
+  dialogue: "Question",
   user: "Prompt",
 };
 
@@ -212,7 +217,13 @@ export function BriefingView({ briefing }: { briefing: Briefing }) {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={briefing.layers} barCategoryGap="28%">
                 <CartesianGrid vertical={false} stroke="var(--color-line)" />
-                <XAxis dataKey="name" tick={{ fill: "var(--color-muted)", fontSize: 12 }} axisLine={false} tickLine={false} />
+                <XAxis
+                  dataKey="name"
+                  interval={briefing.layers.length > 14 ? Math.floor(briefing.layers.length / 7) : 0}
+                  tick={{ fill: "var(--color-muted)", fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
+                />
                 <YAxis domain={[0, 1]} tick={{ fill: "var(--color-muted)", fontSize: 12 }} axisLine={false} tickLine={false} width={32} />
                 <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "var(--color-surface-2)" }} />
                 <Bar dataKey="cka" name="Linear CKA" radius={[6, 6, 0, 0]} onClick={(_row, index) => setLayerIndex(index)}>
@@ -710,7 +721,9 @@ function Metric({ label, value }: { label: string; value: string }) {
 }
 
 function roleSummary(briefing: Briefing) {
-  const order = ["shared", "archive", "acquired", "novel"];
+  const preferred = ["continuation", "factual", "code", "instruction", "dialogue", "shared", "archive", "acquired", "novel", "user"];
+  const present = [...new Set(briefing.prompts.map((row) => row.role))];
+  const order = [...preferred.filter((role) => present.includes(role)), ...present.filter((role) => !preferred.includes(role))];
   return order
     .map((role) => {
       const series = briefing.prompts.filter((row) => row.role === role).flatMap((row) => row.series);
